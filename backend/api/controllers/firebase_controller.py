@@ -18,6 +18,13 @@ authe = firebase.auth()
 database = firebase.database()
 
 def home(request):
-    if database:
-        return HttpResponse("database connected")
-    return HttpResponse("database connection failed")
+    products = database.child("Products").get()
+    # If 'products.val()' is a dict, get all values; if it's a string, just use it
+    data = products.val()
+    if isinstance(data, dict):
+        # If you expect multiple products in the future
+        product_list = [str(v) for v in data.values()]
+        return HttpResponse(f"Products: {', '.join(product_list)}")
+    else:
+        # If it's just a single product name
+        return HttpResponse(f"Product: {data}")
