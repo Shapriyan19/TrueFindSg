@@ -30,13 +30,17 @@ export const signup = async (req, res) => {
     // Send verification email
     await sendEmailVerification(user);
 
+    // Get the ID token
+    const token = await user.getIdToken();
+
     res.status(201).json({
       message: 'User created successfully. Please verify your email.',
       user: {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName
-      }
+      },
+      token
     });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -54,13 +58,17 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: 'Please verify your email before logging in.' });
     }
 
+    // Get the ID token
+    const token = await user.getIdToken();
+
     res.status(200).json({
       message: 'Login successful',
       user: {
         uid: user.uid,
         email: user.email,
         displayName: user.displayName
-      }
+      },
+      token
     });
   } catch (error) {
     res.status(401).json({ error: error.message });
