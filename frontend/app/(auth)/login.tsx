@@ -5,14 +5,56 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // For storing the token
+const API_BASE_URL = "http://localhost:5001";
 
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false); // New state for loading indicator
+  const [errorMessage, setErrorMessage] = useState(""); // New state for error messages
   const router = useRouter();
+
+  const handleLogin = async () => {
+    setLoading(true); // Start loading
+    setErrorMessage(""); // Clear previous errors
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Login successful
+        await AsyncStorage.setItem("userToken", data.token); // Store the ID token
+        await AsyncStorage.setItem("userUID", data.user.uid); // Store UID if needed
+        await AsyncStorage.setItem("userEmail", data.user.email); // Store email if needed
+
+        Alert.alert("Logged in successfully!");
+        router.push("/(tabs)/home"); // Navigate to home screen
+      } else {
+        // Login failed (e.g., 401 Unauthorized, 400 Bad Request)
+        setErrorMessage(data.error || "Login failed. Please try again.");
+        alert("Login failed. Please try again.")
+        setPassword(""); // Clear password field for security
+      }
+    } catch (error) {
+      console.error("Network or API error:", error);
+      setErrorMessage("Could not connect to the server. Please try again.");
+    } finally {
+      setLoading(false); // End loading
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -53,9 +95,8 @@ const LoginScreen = () => {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.loginButton}
-        onPress={() => {
-          router.push("/(tabs)/home");
-        }}
+        onPress={handleLogin} // Call the handleLogin function
+        disabled={loading} // Disable the button while loading
       >
         <Text style={styles.loginButtonText}>Login</Text>
       </TouchableOpacity>
