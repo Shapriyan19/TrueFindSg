@@ -7,10 +7,17 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Image,
+  Platform,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
+import * as ImagePicker from 'expo-image-picker';
+import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 
-const API_BASE_URL = "http://localhost:5001"; // Ensure this matches your backend server
+const API_BASE_URL = Platform.select({
+  web: "http://localhost:5001",
+  default: "http://192.168.1.3:5001", // Replace with your computer's local IP address
+});
 
 const SignupScreen = () => {
   const [email, setEmail] = useState("");
@@ -19,10 +26,30 @@ const SignupScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const router = useRouter();
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please grant permission to access your photos');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
   const handleSignup = async () => {
-    // Frontend validation
     if (!email || !password || !confirmPassword) {
       alert("⚠️ Missing Fields, Please fill in all the fields.");
       return;
@@ -37,6 +64,32 @@ const SignupScreen = () => {
     setErrorMessage("");
 
     try {
+      // First, upload the profile image if one was selected
+      let profileImageUrl = null;
+      if (profileImage) {
+        const formData = new FormData();
+        const imageObject = {
+          uri: profileImage,
+          type: 'image/jpeg',
+          name: 'profile.jpg',
+        } as any;
+        formData.append('image', imageObject);
+
+        const uploadResponse = await fetch(`${API_BASE_URL}/api/images/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          profileImageUrl = uploadData.imageUrl;
+        }
+      }
+
+      // Then proceed with signup
       const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
         method: "POST",
         headers: {
@@ -45,16 +98,15 @@ const SignupScreen = () => {
         body: JSON.stringify({
           email,
           password,
-          displayName: email.split("@")[0], // Or let user input displayName separately
+          displayName: email.split("@")[0],
+          profileImageUrl,
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        alert(
-          "🎉 Signup Successful, A verification email has been sent to your inbox."
-        );
+        alert("🎉 Signup Successful, A verification email has been sent to your inbox.");
         router.push("/(auth)/login");
       } else {
         setErrorMessage(data.error || "Signup failed. Try again.");
@@ -72,6 +124,19 @@ const SignupScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign Up</Text>
+      
+      {/* Profile Image Upload */}
+      <TouchableOpacity style={styles.profileImageContainer} onPress={pickImage}>
+        {profileImage ? (
+          <Image source={{ uri: profileImage }} style={styles.profileImage} />
+        ) : (
+          <View style={styles.profileImagePlaceholder}>
+            <Icon name="camera" size={32} color="#4F4F4F" />
+            <Text style={styles.profileImageText}>Add Profile Photo</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -137,7 +202,6 @@ const SignupScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  // ...your existing styles (unchanged)
   container: {
     flex: 1,
     justifyContent: "center",
@@ -151,7 +215,31 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: "#161823",
     marginBottom: 32,
-    textAlign: "center",
+  },
+  profileImageContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 24,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  profileImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImageText: {
+    color: '#4F4F4F',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
   },
   input: {
     width: "100%",
@@ -178,35 +266,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   toggleText: {
-    color: "#007AFF",
-    fontWeight: "bold",
-    fontFamily: "Inter",
+    color: "#4F4F4F",
     fontSize: 14,
   },
   signupButton: {
     backgroundColor: "#000",
-    paddingVertical: 16,
-    borderRadius: 25,
     width: "100%",
+    height: 48,
+    borderRadius: 8,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
+    marginTop: 16,
   },
   signupButtonText: {
     color: "#fff",
-    fontFamily: "Inter",
+    fontSize: 16,
     fontWeight: "bold",
-    fontSize: 18,
+    fontFamily: "Inter",
   },
   switchText: {
+    marginTop: 16,
     color: "#4F4F4F",
+    fontSize: 14,
     fontFamily: "Inter",
-    fontSize: 16,
-    textAlign: "center",
   },
   loginLink: {
-    color: "#007AFF",
+    color: "#000",
     fontWeight: "bold",
-    fontFamily: "Inter",
   },
 });
 
