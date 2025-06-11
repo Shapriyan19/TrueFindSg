@@ -11,17 +11,21 @@ import { auth, database } from '../config/firebase.js';
 
 export const signup = async (req, res) => {
   try {
-    const { email, password, displayName } = req.body;
+    const { email, password, displayName, profileImageUrl } = req.body;
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Update profile with display name
-    await updateProfile(user, { displayName });
+    // Update profile with display name and photo URL
+    await updateProfile(user, { 
+      displayName,
+      photoURL: profileImageUrl || null
+    });
 
     // Create user profile in database
     await set(ref(database, `users/${user.uid}`), {
       email,
       displayName,
+      photoURL: profileImageUrl || null,
       createdAt: new Date().toISOString(),
       verifiedProducts: [],
       watchlist: []
@@ -38,7 +42,8 @@ export const signup = async (req, res) => {
       user: {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName
+        displayName: user.displayName,
+        photoURL: user.photoURL
       },
       token
     });
