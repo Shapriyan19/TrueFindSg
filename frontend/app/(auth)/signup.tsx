@@ -14,10 +14,8 @@ import { Link, useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 
-const API_BASE_URL = Platform.select({
-  web: "http://localhost:5001",
-  default: "http://192.168.1.5:5001", // Replace with your computer's local IP address
-});
+import { API_BASE_URL } from "../../constants/api";
+
 
 const SignupScreen = () => {
   const [email, setEmail] = useState("");

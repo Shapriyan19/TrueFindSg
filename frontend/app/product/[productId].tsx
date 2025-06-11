@@ -3,10 +3,8 @@ import { View, Text, StyleSheet, ActivityIndicator, Image, Platform, ScrollView,
 import { useLocalSearchParams, router } from "expo-router";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 
-const API_BASE_URL = Platform.select({
-  web: "http://localhost:5001",
-  default: "http://192.168.1.5:5001", // Replace with your computer's local IP address
-});
+import { API_BASE_URL } from "../../constants/api";
+
 
 interface Product {
   id: string;

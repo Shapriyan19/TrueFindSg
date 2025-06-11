@@ -17,10 +17,8 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = Platform.select({
-  web: "http://localhost:5001",
-  default: "http://192.168.1.5:5001",
-});
+import { API_BASE_URL } from "../../../constants/api";
+
 
 const ReportProductScreen = () => {
   const router = useRouter();
