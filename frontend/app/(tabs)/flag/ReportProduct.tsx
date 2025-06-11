@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_BASE_URL = Platform.select({
+  web: "http://localhost:5001",
+  default: "http://192.168.1.5:5001",
+});
 
 const ReportProductScreen = () => {
   const router = useRouter();
@@ -19,15 +28,35 @@ const ReportProductScreen = () => {
   const [sellerName, setSellerName] = useState("");
   const [additionalDetails, setAdditionalDetails] = useState("");
   const [otherReason, setOtherReason] = useState("");
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [userToken, setUserToken] = useState<string | null>(null);
 
   const [selectedReasons, setSelectedReasons] = useState({
-    counterfeit: true, // Default checked as shown in screenshot
+    counterfeit: true,
     misleading: false,
     fakeReviews: false,
     unsafe: false,
     incorrectPricing: false,
     others: false,
   });
+
+  useEffect(() => {
+    const loadUserToken = async () => {
+      try {
+        const token = await AsyncStorage.getItem("userToken");
+        setUserToken(token);
+        if (!token) {
+          Alert.alert("Login Required", "Please log in to submit a report.");
+          router.push("/(auth)/login");
+        }
+      } catch (error) {
+        console.error("Failed to load user token:", error);
+        Alert.alert("Error", "Failed to load user data. Please try again.");
+      }
+    };
+    loadUserToken();
+  }, []);
 
   const toggleReason = (reason: keyof typeof selectedReasons) => {
     setSelectedReasons((prev) => ({
@@ -36,19 +65,101 @@ const ReportProductScreen = () => {
     }));
   };
 
-  const handleSubmit = () => {
-    if (!productName.trim() || !sellerName.trim()) {
-      Alert.alert("Error", "Please fill in all required fields");
+  const handleImagePick = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+        base64: true,
+      });
+
+      if (!result.canceled) {
+        setUploadedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Error", "Failed to pick image.");
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!userToken) {
+      Alert.alert("Login Required", "Please log in to submit a report.");
+      router.push("/(auth)/login");
       return;
     }
 
-    // Here you would typically submit the report data
-    Alert.alert("Success", "Your report has been submitted successfully!", [
-      {
-        text: "OK",
-        onPress: () => router.back(),
-      },
-    ]);
+    if (!productName.trim() || !sellerName.trim()) {
+      Alert.alert("Error", "Please fill in product name and seller name.");
+      return;
+    }
+
+    const selectedReasonsList = Object.keys(selectedReasons).filter(
+      (key) => selectedReasons[key as keyof typeof selectedReasons]
+    ).map((key) => {
+      if (key === 'others' && selectedReasons.others) {
+        return otherReason.trim() || 'Other (unspecified)';
+      }
+      return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+    });
+
+    if (selectedReasonsList.length === 0) {
+      Alert.alert("Error", "Please select at least one reason for report.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reports`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${userToken}`,
+        },
+        body: JSON.stringify({
+          productName,
+          sellerName,
+          reportType: selectedReasonsList,
+          description: additionalDetails,
+          evidence: uploadedImage,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Success", data.message || "Your report has been submitted successfully!", [
+          {
+            text: "OK",
+            onPress: () => router.back(),
+          },
+        ]);
+        setProductName("");
+        setSellerName("");
+        setAdditionalDetails("");
+        setOtherReason("");
+        setUploadedImage(null);
+        setSelectedReasons({
+          counterfeit: true, misleading: false, fakeReviews: false, unsafe: false, incorrectPricing: false, others: false,
+        });
+      } else {
+        Alert.alert("Submission Failed", data.error || "Failed to submit report. Please try again.");
+      }
+    } catch (error) {
+      console.error("Network or API error:", error);
+      Alert.alert("Error", "Could not connect to the server. Please check your network connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -60,7 +171,6 @@ const ReportProductScreen = () => {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Icon name="arrow-left" size={24} color="#161823" />
@@ -75,7 +185,6 @@ const ReportProductScreen = () => {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Product Information Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Product Information</Text>
 
@@ -102,11 +211,9 @@ const ReportProductScreen = () => {
           </View>
         </View>
 
-        {/* Reason for Report Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reason for Report</Text>
 
-          {/* Checkbox Options */}
           <TouchableOpacity
             style={styles.checkboxContainer}
             onPress={() => toggleReason("counterfeit")}
@@ -192,7 +299,6 @@ const ReportProductScreen = () => {
             <Text style={styles.checkboxLabel}>Incorrect Pricing</Text>
           </TouchableOpacity>
 
-          {/* Others Option with Text Input */}
           <TouchableOpacity
             style={styles.checkboxContainer}
             onPress={() => toggleReason("others")}
@@ -219,7 +325,6 @@ const ReportProductScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Additional Details Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Additional Details</Text>
           <TextInput
@@ -234,22 +339,28 @@ const ReportProductScreen = () => {
           />
         </View>
 
-        {/* Upload Image Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upload Image</Text>
-          <TouchableOpacity style={styles.uploadButton}>
-            <Icon name="camera" size={32} color="#4F4F4F" />
+          <TouchableOpacity style={styles.uploadButton} onPress={handleImagePick}>
+            {uploadedImage ? (
+              <Image source={{ uri: uploadedImage }} style={styles.uploadedImage} />
+            ) : (
+              <Icon name="camera" size={32} color="#4F4F4F" />
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Action Buttons */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+        <TouchableOpacity style={styles.cancelButton} onPress={handleCancel} disabled={loading}>
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Submit Report</Text>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.submitButtonText}>Submit Report</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -266,149 +377,151 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 16,
-    backgroundColor: "#fff",
+    paddingTop: Platform.OS === "ios" ? 50 : 20,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontFamily: "Jost",
+    fontWeight: "bold",
+    fontSize: 20,
     color: "#161823",
-    fontFamily: "Inter",
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
+    paddingTop: 20,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontFamily: "Jost",
+    fontWeight: "bold",
+    fontSize: 18,
     color: "#161823",
-    fontFamily: "Inter",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 15,
   },
   inputLabel: {
+    fontFamily: "Inter",
     fontSize: 14,
     color: "#161823",
-    fontFamily: "Inter",
-    marginBottom: 8,
+    marginBottom: 5,
   },
   textInput: {
-    borderWidth: 1,
+    height: 48,
     borderColor: "#E0E0E0",
+    borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
     fontFamily: "Inter",
+    fontSize: 16,
     color: "#161823",
-    backgroundColor: "#F8F8F8",
+    backgroundColor: "#F5F5F5",
   },
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 10,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#8A2BE2",
-    borderRadius: 8,
     paddingHorizontal: 12,
-    borderStyle: "dashed",
+    borderColor: "#D0D0D0",
+    borderWidth: 1,
+    borderRadius: 8,
   },
   checkbox: {
     width: 20,
     height: 20,
-    borderWidth: 2,
-    borderColor: "#4F4F4F",
     borderRadius: 4,
-    marginRight: 12,
-    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#000",
     justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
   },
   checkedBox: {
     backgroundColor: "#000",
-    borderColor: "#000",
   },
   checkboxLabel: {
-    fontSize: 14,
-    color: "#161823",
     fontFamily: "Inter",
+    fontSize: 16,
+    color: "#161823",
     flex: 1,
   },
   othersInput: {
     flex: 1,
-    marginLeft: 8,
+    height: 30,
+    borderColor: "#E0E0E0",
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-    paddingVertical: 4,
-    fontSize: 14,
+    marginLeft: 10,
     fontFamily: "Inter",
+    fontSize: 16,
     color: "#161823",
   },
   textArea: {
-    borderWidth: 1,
     borderColor: "#E0E0E0",
+    borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 10,
     fontFamily: "Inter",
+    fontSize: 16,
     color: "#161823",
-    backgroundColor: "#F8F8F8",
-    height: 100,
+    backgroundColor: "#F5F5F5",
   },
   uploadButton: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+    backgroundColor: "#F5F5F5",
     borderRadius: 8,
-    padding: 20,
-    alignItems: "center",
+    width: 100,
+    height: 100,
     justifyContent: "center",
-    backgroundColor: "#F8F8F8",
+    alignItems: "center",
+  },
+  uploadedImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
   buttonContainer: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    justifyContent: "space-around",
+    paddingVertical: 15,
     borderTopWidth: 1,
     borderTopColor: "#E0E0E0",
     backgroundColor: "#fff",
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 12,
-    marginRight: 8,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#F0F0F0",
+    paddingVertical: 14,
+    marginRight: 10,
   },
   cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
     color: "#161823",
     fontFamily: "Inter",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   submitButton: {
     flex: 1,
-    paddingVertical: 12,
-    marginLeft: 8,
+    backgroundColor: "#000",
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#000",
+    paddingVertical: 14,
   },
   submitButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
     color: "#fff",
     fontFamily: "Inter",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
 

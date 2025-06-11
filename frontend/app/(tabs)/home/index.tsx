@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,36 +7,26 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-const trendingDeals = [
-  {
-    id: 1,
-    image: require("../../../assets/logo.png"),
-    store: "Amazon",
-    title: "Airpods Pro 2",
-    price: "$289.00",
-    oldPrice: "$349.00",
-  },
-  {
-    id: 2,
-    image: require("../../../assets/logo.png"),
-    store: "Shopee",
-    title: "Pickle ball Paddles",
-    price: "$15.22",
-    oldPrice: "$19.90",
-  },
-  {
-    id: 3,
-    image: require("../../../assets/logo.png"),
-    store: "Lazada",
-    title: "Bath Towel",
-    price: "$2.45",
-    oldPrice: "",
-  },
-];
+const API_BASE_URL = Platform.select({
+  web: "http://localhost:5001",
+  default: "http://192.168.1.5:5001", // Replace with your computer's local IP address
+});
+
+interface Product {
+  id: string;
+  product_name: string;
+  brand: string;
+  price: number;
+  platform: string;
+  image_url?: string;
+  isFake: boolean;
+}
 
 const categories = [
   { id: 1, label: "Electronics", icon: "cellphone" as any },
@@ -47,6 +37,31 @@ const categories = [
 
 const HomeScreen = () => {
   const router = useRouter();
+  const [trendingDeals, setTrendingDeals] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchRandomVerifiedProducts();
+  }, []);
+
+  const fetchRandomVerifiedProducts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/search`);
+      const allProducts = await response.json();
+      
+      // Filter out fake products and get random 4 products
+      const verifiedProducts = allProducts
+        .filter((product: Product) => !product.isFake)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 4);
+
+      setTrendingDeals(verifiedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -89,25 +104,33 @@ const HomeScreen = () => {
           <Text style={styles.sectionHeader}>Trending Verified Deals</Text>
           <Icon name="chevron-right" size={22} color="#161823" />
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.dealsRow}
-        >
-          {trendingDeals.map((deal) => (
-            <View key={deal.id} style={styles.dealCard}>
-              <Image source={deal.image} style={styles.dealImage} />
-              <Text style={styles.dealStore}>{deal.store}</Text>
-              <Text style={styles.dealTitle}>{deal.title}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.dealPrice}>{deal.price}</Text>
-                {deal.oldPrice ? (
-                  <Text style={styles.dealOldPrice}>{deal.oldPrice}</Text>
-                ) : null}
-              </View>
-            </View>
-          ))}
-        </ScrollView>
+        {loading ? (
+          <ActivityIndicator size="large" color="#000" style={styles.loader} />
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dealsRow}
+          >
+            {trendingDeals.map((deal) => (
+              <TouchableOpacity 
+                key={deal.id} 
+                style={styles.dealCard}
+                onPress={() => router.push(`/product/${deal.id}`)}
+              >
+                <Image 
+                  source={deal.image_url ? { uri: deal.image_url } : require("../../../assets/logo.png")} 
+                  style={styles.dealImage} 
+                />
+                <Text style={styles.dealStore}>{deal.platform}</Text>
+                <Text style={styles.dealTitle}>{deal.product_name}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.dealPrice}>${deal.price.toFixed(2)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Top Categories */}
         <Text style={styles.sectionHeader}>Top Categories</Text>
@@ -252,12 +275,6 @@ const styles = StyleSheet.create({
     color: "#161823",
     marginRight: 6,
   },
-  dealOldPrice: {
-    fontFamily: "Inter",
-    fontSize: 12,
-    color: "#4F4F4F",
-    textDecorationLine: "line-through",
-  },
   categoriesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -298,6 +315,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter",
     fontSize: 12,
     color: "#4F4F4F",
+  },
+  loader: {
+    marginVertical: 20,
   },
 });
 
