@@ -109,6 +109,14 @@ const UploadImageScreen = () => {
     }
   };
   
+  if (isUploading) {
+  return (
+    <View style={styles.loaderContainer}>
+      <Text style={styles.loadingText}>Verifying product image...</Text>
+    </View>
+  );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -224,6 +232,20 @@ const styles = StyleSheet.create({
     fontFamily: "Inter",
     fontSize: 14,
   },
+  loaderContainer: {
+  flex: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#fff",
+  paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontFamily: "Inter",
+    fontSize: 16,
+    color: "#4F4F4F",
+    textAlign: "center",
+  },
+
 });
 
 export default UploadImageScreen;
