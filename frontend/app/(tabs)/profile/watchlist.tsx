@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,53 +6,90 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Sample data for watchlist products
-const watchlistProducts = [
-  {
-    id: 1,
-    name: "Air Pods Pro",
-    description: "Amazon",
-    price: "$289.00",
-    verification: "Original",
-    verificationColor: "#34C759",
-    image:
-      "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=100&h=100&fit=crop",
-  },
-  {
-    id: 2,
-    name: "Samsung T7 USB",
-    description: "Lazada",
-    price: "$159.00",
-    verification: "Original",
-    verificationColor: "#34C759",
-    image:
-      "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=100&h=100&fit=crop",
-  },
-];
+const API_BASE_URL = "http://localhost:5001"; // Change to your IP if needed
+
+interface WatchlistItem {
+  id: string;
+  productId: string;
+  platform: string;
+  addedAt: string;
+}
 
 const WatchlistScreen = () => {
   const router = useRouter();
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const renderProductItem = (item: any) => (
+  useEffect(() => {
+    fetchWatchlist();
+  }, []);
+
+  const fetchWatchlist = async () => {
+    setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      const response = await fetch(`${API_BASE_URL}/api/users/watchlist`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      setWatchlist(data);
+    } catch (error) {
+      console.error("Failed to fetch watchlist:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteWatchlistItem = async (itemId: string) => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      await fetch(`${API_BASE_URL}/api/users/watchlist/${itemId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Update local state
+      setWatchlist(prev => prev.filter(item => item.id !== itemId));
+    } catch (error) {
+      console.error("Failed to delete item:", error);
+    }
+  };
+
+  const renderProductItem = (item: WatchlistItem) => (
     <View key={item.id} style={styles.productItem}>
-      <Image source={{ uri: item.image }} style={styles.productImage} />
+      <Image
+        source={{
+          uri: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=100&h=100&fit=crop",
+        }}
+        style={styles.productImage}
+      />
       <View style={styles.productContent}>
-        <Text style={styles.productName}>{item.name}</Text>
-        <Text style={styles.productDescription}>{item.description}</Text>
-        <Text style={styles.productPrice}>{item.price}</Text>
+        <Text style={styles.productName}>{item.productId}</Text>
+        <Text style={styles.productDescription}>{item.platform}</Text>
       </View>
+      {/* Verification Badge */}
       <View
         style={[
           styles.verificationBadge,
-          { backgroundColor: item.verificationColor },
+          { backgroundColor: "#34C759" },
         ]}
       >
-        <Text style={styles.verificationText}>{item.verification}</Text>
+        <Text style={styles.verificationText}>{"Original"}</Text>
       </View>
+      <TouchableOpacity onPress={() => deleteWatchlistItem(item.id)}>
+        <Icon name="delete-outline" size={24} color="#FF3B30" />
+      </TouchableOpacity>
     </View>
   );
 
@@ -67,42 +104,32 @@ const WatchlistScreen = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Table Header */}
-      <View style={styles.tableHeader}>
-        <Text style={styles.headerColumn}>ITEMS</Text>
-        <Text style={styles.headerColumn}>DESCRIPTION</Text>
-        <Text style={styles.headerColumn}>Verification</Text>
-      </View>
-
-      {/* Products List */}
-      <ScrollView
-        style={styles.productsList}
-        showsVerticalScrollIndicator={false}
-      >
-        {watchlistProducts.map(renderProductItem)}
-
-        {/* Empty state if needed */}
-        {watchlistProducts.length === 0 && (
-          <View style={styles.emptyState}>
-            <Icon name="bookmark-outline" size={48} color="#E0E0E0" />
-            <Text style={styles.emptyStateText}>
-              No items in your watchlist yet
-            </Text>
-            <Text style={styles.emptyStateSubtext}>
-              Products you bookmark will appear here
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+      {/* Content */}
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 32 }} size="large" color="#000" />
+      ) : (
+        <ScrollView style={styles.productsList}>
+          {watchlist.length > 0 ? (
+            watchlist.map(renderProductItem)
+          ) : (
+            <View style={styles.emptyState}>
+              <Icon name="bookmark-outline" size={48} color="#E0E0E0" />
+              <Text style={styles.emptyStateText}>
+                No items in your watchlist yet
+              </Text>
+              <Text style={styles.emptyStateSubtext}>
+                Products you bookmark will appear here
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -118,26 +145,7 @@ const styles = StyleSheet.create({
     color: "#161823",
     fontFamily: "Inter",
   },
-  tableHeader: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#F8F8F8",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  headerColumn: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#4F4F4F",
-    fontFamily: "Inter",
-    textTransform: "uppercase",
-  },
-  productsList: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
+  productsList: { flex: 1, paddingHorizontal: 16 },
   productItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -151,10 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 12,
   },
-  productContent: {
-    flex: 1,
-    marginRight: 12,
-  },
+  productContent: { flex: 1 },
   productName: {
     fontSize: 14,
     fontWeight: "600",
@@ -175,10 +180,11 @@ const styles = StyleSheet.create({
     fontFamily: "Inter",
   },
   verificationBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 20,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 20,
     minWidth: 80,
+    marginRight: 12,
     alignItems: "center",
   },
   verificationText: {
