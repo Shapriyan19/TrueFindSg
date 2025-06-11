@@ -1,10 +1,3 @@
-<<<<<<< Updated upstream
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
-import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import * as ImagePicker from 'expo-image-picker';
-=======
 import React, {useState} from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from "react-native";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
@@ -16,7 +9,6 @@ const API_BASE_URL = Platform.select({
   web: "http://localhost:5001",
   default: "http://192.168.1.3:5001", // Replace with your computer's local IP address
 });
->>>>>>> Stashed changes
 
 const UploadImageScreen = () => {
   const router = useRouter();
