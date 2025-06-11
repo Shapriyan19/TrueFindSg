@@ -8,12 +8,16 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_BASE_URL = "http://localhost:5001"; // Change to your IP if needed
+const API_BASE_URL = Platform.select({
+  web: "http://localhost:5001",
+  default: "http://192.168.1.5:5001", // Replace with your computer's local IP address
+});
 
 interface WatchlistItem {
   id: string;

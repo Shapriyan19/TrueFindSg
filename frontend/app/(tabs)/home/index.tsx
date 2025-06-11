@@ -41,7 +41,7 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRandomVerifiedProducts();
+    fetchSpecificProducts();
   }, []);
 
   const fetchRandomVerifiedProducts = async () => {
@@ -58,6 +58,24 @@ const HomeScreen = () => {
       setTrendingDeals(verifiedProducts);
     } catch (error) {
       console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSpecificProducts = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/search`);
+      const allProducts = await response.json();
+      
+      // Filter products by specific SKUs
+      const specificProducts = allProducts.filter((product: Product) => 
+        ['SKU0004', 'SKU0005', 'SKU0007', 'SKU0015'].includes(product.id)
+      );
+
+      setTrendingDeals(specificProducts);
+    } catch (error) {
+      console.error('Error fetching specific products:', error);
     } finally {
       setLoading(false);
     }
