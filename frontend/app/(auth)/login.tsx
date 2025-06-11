@@ -43,6 +43,8 @@ const LoginScreen = () => {
         await AsyncStorage.setItem("userToken", data.token); // Store the ID token
         await AsyncStorage.setItem("userUID", data.user.uid); // Store UID if needed
         await AsyncStorage.setItem("userEmail", data.user.email); // Store email if needed
+        // await AsyncStorage.setItem("userDisplayName", data.user.displayName); // Store displayName if needed
+        // await AsyncStorage.setItem("userPhotoURL", data.user.photoURL); // Store photoURL if needed
 
         Alert.alert("Logged in successfully!");
         router.push("/(tabs)/home"); // Navigate to home screen

@@ -71,7 +71,8 @@ export const login = async (req, res) => {
       user: {
         uid: user.uid,
         email: user.email,
-        displayName: user.displayName
+        displayName: user.displayName,
+        photoURL: user.photoURL,
       },
       token
     });
