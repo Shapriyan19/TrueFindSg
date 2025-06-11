@@ -17,20 +17,26 @@ export const searchProducts = async (req, res) => {
       const product = childSnapshot.val();
       console.log('Full product data from Firebase:', product);
       
-      const productName = product.product_name || product.name || product.title || product.productName;
-      console.log('Product name for search:', productName);
-      console.log('Product platform:', product.platform);
-      console.log('Product image URL:', product.image_url || product.imageUrl || product.photoUrl);
+      // Use the correct field names from Firebase structure
+      const productName = product.name;
+      const authenticityScore = product.authenticityScore;
+      const imageUrl = product.image_url;
 
       const matchesQuery = searchQuery
         ? productName?.toLowerCase().includes(searchQuery.toLowerCase())
         : true;
       const matchesPlatform = platform ? product.platform === platform : true;
-      const matchesScore = minScore ? product.authenticity_confidence_score >= Number(minScore) : true;
+      const matchesScore = minScore ? authenticityScore >= Number(minScore) : true;
       const matchesPrice = maxPrice ? product.price <= Number(maxPrice) : true;
 
       if (matchesQuery && matchesPlatform && matchesScore && matchesPrice) {
-        products.push({ id: childSnapshot.key, ...product });
+        products.push({ 
+          id: childSnapshot.key, 
+          ...product, 
+          authenticity_confidence_score: authenticityScore, // Map to frontend expected name
+          product_name: productName, // Map to frontend expected name
+          image_url: imageUrl // Ensure image_url is included
+        });
         console.log('Product matched and added to results:', childSnapshot.key);
       }
     });
@@ -63,7 +69,23 @@ export const getProductDetails = async (req, res) => {
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    res.status(200).json(snapshot.val());
+    const productData = snapshot.val();
+    // Map backend field names to frontend expected names for consistency
+    const mappedProduct = {
+      ...productData,
+      id: productId,
+      product_name: productData.name, // Map 'name' to 'product_name'
+      authenticity_confidence_score: productData.authenticityScore, // Map 'authenticityScore' to 'authenticity_confidence_score'
+      image_url: productData.image_url, // Ensure image_url is passed
+      authenticityReasons: productData.authenticityReasons, // Add authenticityReasons
+      category: productData.category, // Add category
+      isFake: productData.isFake, // Add isFake
+      keyFeatures: productData.keyFeatures ? Object.values(productData.keyFeatures) : [], // Add keyFeatures, handling as array
+      seller: productData.seller, // Add seller
+      url: productData.url, // Add url
+    };
+
+    res.status(200).json(mappedProduct);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

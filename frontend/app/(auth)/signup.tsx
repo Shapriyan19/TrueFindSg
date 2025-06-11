@@ -16,7 +16,7 @@ import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 
 const API_BASE_URL = Platform.select({
   web: "http://localhost:5001",
-  default: "http://192.168.1.3:5001", // Replace with your computer's local IP address
+  default: "http://192.168.1.5:5001", // Replace with your computer's local IP address
 });
 
 const SignupScreen = () => {

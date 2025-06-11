@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 
 const API_BASE_URL = Platform.select({
   web: "http://localhost:5001",
-  default: "http://192.168.1.3:5001", // Replace with your computer's local IP address
+  default: "http://192.168.1.5:5001", // Replace with your computer's local IP address
 });
 
 interface Product {
@@ -56,7 +56,7 @@ export default function SearchScreen() {
 
   const renderProductItem = ({ item }: { item: Product }) => (
     <TouchableOpacity 
-      style={[styles.productCard, { backgroundColor: 'lightblue' }]}
+      style={styles.productCard}
       onPress={() => {
         console.log("Navigating to product:", item.id);
         router.push(`/product/${item.id}`);
@@ -68,6 +68,11 @@ export default function SearchScreen() {
       <Text style={styles.productPlatform}>
         Platform: {item.platform}
       </Text>
+      {item.authenticity_confidence_score !== undefined && (
+        <Text style={styles.productScore}>
+          Authenticity Score: {item.authenticity_confidence_score}%
+        </Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -111,7 +116,7 @@ export default function SearchScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.productList}
           ListEmptyComponent={!loading ? EmptyListComponent : null}
-          style={{ flex: 1, backgroundColor: 'lightgreen' }}
+          style={{ flex: 1 }}
         />
       )}
     </View>
@@ -214,6 +219,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   productPlatform: {
+    fontSize: 14,
+    color: "#4F4F4F",
+    fontFamily: "Inter",
+    textAlign: "center",
+    marginTop: 4,
+  },
+  productScore: {
     fontSize: 14,
     color: "#4F4F4F",
     fontFamily: "Inter",

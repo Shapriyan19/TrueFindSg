@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 const trendingDeals = [
   {
     id: 1,
-    // image: require("../../assets/logo.png"), // Placeholder image
+    image: require("../../../assets/logo.png"),
     store: "Amazon",
     title: "Airpods Pro 2",
     price: "$289.00",
@@ -22,7 +22,7 @@ const trendingDeals = [
   },
   {
     id: 2,
-    // image: require("../../assets/logo.png"), // Placeholder image
+    image: require("../../../assets/logo.png"),
     store: "Shopee",
     title: "Pickle ball Paddles",
     price: "$15.22",
@@ -30,7 +30,7 @@ const trendingDeals = [
   },
   {
     id: 3,
-    // image: require("../../assets/logo.png"), // Placeholder image
+    image: require("../../../assets/logo.png"),
     store: "Lazada",
     title: "Bath Towel",
     price: "$2.45",
