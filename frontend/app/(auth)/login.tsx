@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,32 @@ const LoginScreen = () => {
   const [errorMessage, setErrorMessage] = useState(""); // New state for error messages
   const router = useRouter();
 
+  // Check for token expiration on component mount
+  useEffect(() => {
+    checkTokenExpiration();
+  }, []);
+
+  const checkTokenExpiration = async () => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+      if (token) {
+        // Make a test request to check token validity
+        const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          // Token is invalid or expired, clear storage
+          await AsyncStorage.multiRemove(["userToken", "userUID", "userEmail"]);
+        }
+      }
+    } catch (error) {
+      console.error("Token verification error:", error);
+    }
+  };
+
   const handleLogin = async () => {
     setLoading(true); // Start loading
     setErrorMessage(""); // Clear previous errors
@@ -46,12 +72,15 @@ const LoginScreen = () => {
         // await AsyncStorage.setItem("userDisplayName", data.user.displayName); // Store displayName if needed
         // await AsyncStorage.setItem("userPhotoURL", data.user.photoURL); // Store photoURL if needed
 
-        Alert.alert("Logged in successfully!");
+        Alert.alert("Success", "Logged in successfully!");
         router.push("/(tabs)/home"); // Navigate to home screen
       } else {
-        // Login failed (e.g., 401 Unauthorized, 400 Bad Request)
-        setErrorMessage(data.error || "Login failed. Please try again.");
-        alert("Login failed. Please try again.")
+        // Handle specific error cases
+        if (data.code === 'TOKEN_EXPIRED') {
+          setErrorMessage("Your session has expired. Please log in again.");
+        } else {
+          setErrorMessage(data.error || "Login failed. Please try again.");
+        }
         setPassword(""); // Clear password field for security
       }
     } catch (error) {

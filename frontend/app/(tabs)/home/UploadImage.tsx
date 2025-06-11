@@ -1,11 +1,125 @@
+<<<<<<< Updated upstream
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
+=======
+import React, {useState} from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from "react-native";
+import { MaterialCommunityIcons as Icon } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_BASE_URL = Platform.select({
+  web: "http://localhost:5001",
+  default: "http://192.168.1.3:5001", // Replace with your computer's local IP address
+});
+>>>>>>> Stashed changes
 
 const UploadImageScreen = () => {
   const router = useRouter();
+  const [productImage, setProductImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const verifyImage = async (uri: string) => {
+    try {
+      setIsUploading(true);
+      
+      // Get the auth token from storage
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        Alert.alert('Authentication Error', 'Please log in to continue');
+        router.push('/(auth)/login');
+        return;
+      }
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('image', {
+        uri,
+        type: 'image/jpeg',
+        name: 'verify.jpg',
+      } as any);
+
+      // Make API call
+      const verifyResponse = await fetch(`${API_BASE_URL}/api/images/verify`, {
+        method: 'POST',
+        body: formData,
+        headers:{
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json();
+        throw new Error(errorData.error || 'Failed to verify image');
+      }
+
+      const responseData = await verifyResponse.json();
+
+      // Store imageUri in AsyncStorage instead of passing via params
+      await AsyncStorage.setItem('currentImageUri', responseData.imageUri);
+
+      router.push({
+        pathname: "/(tabs)/home/ImageVerification",
+        params: {
+          // Only pass verificationResult via params, imageUri is in AsyncStorage
+          verificationResult: JSON.stringify(responseData.verificationResult)
+        }
+      });
+    } catch (error) {
+      console.error('Error verifying image:', error);
+      Alert.alert(
+        'Verification Failed',
+        error instanceof Error ? error.message : 'Failed to verify image. Please try again.'
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const pickImage = async (useCamera: boolean = false) => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (useCamera && cameraStatus.status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your camera');
+        return;
+      }
+      
+      if (!useCamera && status !== 'granted') {
+        Alert.alert('Permission needed', 'Please grant permission to access your photos');
+        return;
+      }
+
+      const result = await (useCamera 
+        ? ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+          })
+        : ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+          }));
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const imageUri = result.assets[0].uri;
+        setProductImage(imageUri);
+        await verifyImage(imageUri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+  
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -23,7 +137,7 @@ const UploadImageScreen = () => {
 
       <TouchableOpacity
         style={styles.actionButton}
-        onPress={() => router.push("/(tabs)/home/ImageVerification")}
+        onPress={() => pickImage(true)}
       >
         <Icon
           name="camera"
@@ -36,7 +150,7 @@ const UploadImageScreen = () => {
 
       <TouchableOpacity
         style={styles.actionButton}
-        onPress={() => router.push("/(tabs)/home/ImageVerification")}
+        onPress={() => pickImage(false)}
       >
         <Icon name="image" size={24} color="#fff" style={{ marginRight: 10 }} />
         <Text style={styles.actionButtonText}>Upload From Gallery</Text>

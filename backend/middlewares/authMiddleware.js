@@ -13,7 +13,20 @@ export const authenticateUser = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Token verification failed:', error);
-    res.status(401).json({ error: 'Invalid token' });
+    
+    // Handle specific Firebase auth errors
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({ 
+        error: 'Token expired',
+        code: 'TOKEN_EXPIRED',
+        message: 'Your session has expired. Please log in again.'
+      });
+    }
+    
+    res.status(401).json({ 
+      error: 'Invalid token',
+      message: 'Authentication failed. Please log in again.'
+    });
   }
 };
 
